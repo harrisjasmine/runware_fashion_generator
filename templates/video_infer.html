@@ -1,0 +1,142 @@
+{% extends 'layout.html' %}
+{% block content %}
+<!-- Content -->
+<div class="w3-content" style="max-width:1100px;margin-top:80px;margin-bottom:80px">
+
+  <div class="w3-center w3-padding-64">
+    <span class="w3-xlarge w3-bottombar w3-border-dark-grey w3-padding-16">Video Inference (Runware)</span>
+  </div>
+
+  <form class="w3-container" method="post" action="/api/video_infer" onsubmit="return submitVideo(event)">
+    <div class="w3-section">
+      <label class="w3-text-black"><b>Prompt</b></label>
+      <textarea
+        class="w3-input w3-border w3-hover-border-black"
+        name="prompt"
+        rows="3"
+        placeholder="gothic fashion runway walk"
+        required
+      ></textarea>
+    </div>
+
+    <div class="w3-row-padding">
+      <div class="w3-third">
+        <label class="w3-text-black"><b>Model</b></label>
+        <input class="w3-input w3-border w3-hover-border-black" name="model" type="text" value="bytedance:1@1" required>
+      </div>
+      <div class="w3-third">
+        <label class="w3-text-black"><b>Width</b></label>
+        <input class="w3-input w3-border w3-hover-border-black" name="width" type="number" value="864" min="128" step="1">
+      </div>
+      <div class="w3-third">
+        <label class="w3-text-black"><b>Height</b></label>
+        <input class="w3-input w3-border w3-hover-border-black" name="height" type="number" value="480" min="128" step="1">
+      </div>
+    </div>
+
+    <div class="w3-row-padding" style="margin-top:8px">
+      <div class="w3-third">
+        <label class="w3-text-black"><b>Duration (seconds)</b></label>
+        <input class="w3-input w3-border w3-hover-border-black" name="duration" type="number" value="5" min="1" step="1">
+      </div>
+      <div class="w3-third">
+        <label class="w3-text-black"><b>FPS</b></label>
+        <input class="w3-input w3-border w3-hover-border-black" name="fps" type="number" value="24" min="1" step="1">
+      </div>
+    </div>
+
+    <div class="w3-section">
+      <button id="submitBtn" class="w3-button w3-block w3-black" type="submit">Generate Video</button>
+    </div>
+  </form>
+
+  <div id="statusBox" class="w3-panel w3-pale-blue w3-leftbar w3-border-blue" style="display:none;"></div>
+
+  <h2 class="w3-margin-top">Generated Video</h2>
+  <div id="videoContainer" style="display:flex; flex-direction:column; gap:1rem;">
+    <!-- Video will be injected here -->
+  </div>
+</div>
+
+<script>
+  let pollHandle = null;
+
+  async function submitVideo(ev) {
+    ev.preventDefault();
+    const form = ev.target;
+    const submitBtn = document.getElementById('submitBtn');
+    const statusBox = document.getElementById('statusBox');
+    const videoContainer = document.getElementById('videoContainer');
+
+    submitBtn.disabled = true;
+    statusBox.style.display = 'block';
+    statusBox.textContent = 'Submitting task…';
+    videoContainer.innerHTML = '';
+
+    try {
+      const formData = new FormData(form);
+      const resp = await fetch(form.action, { method: 'POST', body: formData });
+      const json = await resp.json();
+
+      if (!json.ok) throw new Error(json.error || 'Submission failed');
+
+      const taskUUID = json.taskUUID;
+      statusBox.textContent = 'Submitted. Task UUID: ' + taskUUID + ' — polling for results…';
+
+      startPolling(taskUUID, statusBox, videoContainer, submitBtn);
+    } catch (e) {
+      statusBox.classList.remove('w3-pale-blue','w3-border-blue');
+      statusBox.classList.add('w3-pale-red','w3-border-red');
+      statusBox.textContent = 'Error: ' + e.message;
+      submitBtn.disabled = false;
+    }
+
+    return false;
+  }
+
+  function startPolling(taskUUID, statusBox, videoContainer, submitBtn) {
+    clearInterval(pollHandle);
+    pollHandle = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/status/${taskUUID}`);
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || 'Polling failed');
+
+        if (j.status === 'success' && j.videoURL) {
+          clearInterval(pollHandle);
+          statusBox.classList.remove('w3-pale-blue','w3-border-blue');
+          statusBox.classList.add('w3-pale-green','w3-border-green');
+          statusBox.textContent = 'Success!' + (j.cost != null ? ` Cost: $${j.cost}` : '');
+
+          const html = `
+            <video controls playsinline style="max-width:100%; border-radius:8px;">
+              <source src="${j.videoURL}" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+            <a class="w3-button w3-border" href="${j.videoURL}" target="_blank" rel="noopener">Open video in new tab</a>
+          `;
+          videoContainer.innerHTML = html;
+          submitBtn.disabled = false;
+        } else if (j.status === 'processing' || j.status === 'pending') {
+          statusBox.textContent = 'Still processing…';
+        } else if (j.status === 'error') {
+          clearInterval(pollHandle);
+          statusBox.classList.remove('w3-pale-blue','w3-border-blue');
+          statusBox.classList.add('w3-pale-red','w3-border-red');
+          statusBox.textContent = 'Provider returned an error. See console for details.';
+          console.error(j.raw);
+          submitBtn.disabled = false;
+        } else {
+          statusBox.textContent = 'Status: ' + j.status;
+        }
+      } catch (e) {
+        clearInterval(pollHandle);
+        statusBox.classList.remove('w3-pale-blue','w3-border-blue');
+        statusBox.classList.add('w3-pale-red','w3-border-red');
+        statusBox.textContent = 'Polling error: ' + e.message;
+        submitBtn.disabled = false;
+      }
+    }, 2000);
+  }
+</script>
+{% endblock %}
