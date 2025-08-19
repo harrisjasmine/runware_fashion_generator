@@ -50,8 +50,10 @@ The domain highlights how the same API patterns seamlessly cover **T2I, I2I, T2V
 ```cd <your-repo>```
 
 # 2) Create & activate a virtualenv
+NOTE: Please be sure to add your Auth Key when running locally
 ```python -m venv .venv```
-```source .venv/bin/activate  # Windows: .venv\Scripts\activate```
+```source .venv/bin/activate```
+```Windows: .venv\Scripts\activate```
 
 # 3) Install dependencies
 ```pip install -r requirements.txt```
@@ -61,3 +63,8 @@ The domain highlights how the same API patterns seamlessly cover **T2I, I2I, T2V
 
 # 5) Access your app running locally on:
 ```http://127.0.0.1:5000```
+
+
+### Demo
+
+[Watch the project demo](https://drive.google.com/file/d/1_DSapQ0vJiHSAt_aF2IsfX4ZyQTUW1SA/view?usp=sharing "Click to watch the demo")

@@ -39,7 +39,7 @@ def runware_request(tasks: dict) -> list[dict]:
         # return image_url
 
     except requests.exceptions.RequestException as e:
-        logging.exception(f"Runware API request: {payload} {resp} failed")  # logs stack trace + message to CLI
+        logging.exception(f"Runware API request: {payload} {r} failed")  # logs stack trace + message to CLI
         return None
 
 @app.route("/")
